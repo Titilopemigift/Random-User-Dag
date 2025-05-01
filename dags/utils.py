@@ -1,23 +1,10 @@
 import requests
 import pandas as pd
-import json
 import boto3
 import os
-from dotenv import load_dotenv
+import aws wrangler as wr
+from airflow.models import variable
 
-# Load environment variables from .env file
-load_dotenv()
-
-secret_key = os.getenv("MY_SECRET_KEY")
-access_key = os.getenv("MY_ACCESS_KEY")
-region = os.getenv("REGION")
-
-s3 = boto3.client(
-        's3',
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        region_name=region
-    )
 
 # s3 Bucket details
 s3_bucket = 'titilope-bucket'
@@ -26,51 +13,54 @@ s3_folder = 'random_users.json'
 
 s3_path = f"s3://{s3_bucket}/{s3_folder}/{s3_filename}"
 
-# Function to fetch data from the API and save it to a file
-def random_users(**kwargs):
+# Function to fetch data from the API
+def random_users():
     
      """
-    Fetches 10 random users from the random user generator API,
-    normalizes the JSON structure into a DataFrame,
-    and saves the result as a Parquet file in a temporary local directory.
-
-    The local file path is then pushed to Airflow XCom for use in downstream tasks.
-
-    Args:
-        **kwargs: Context keyword arguments passed from Airflow.
-                  Must include 'ti' (TaskInstance) for XCom operations.
+    Fetches random users from the random user generator API
 
     Returns:
-        None
+        JSON file
     """
      url = 'https://randomuser.me/api/?results=10'
      response = requests.get(url)
-     data = response.json()
-     users = data['results']
-     df_users= pd.random_users(users)
-     
-     os.makedirs('random_users', exist_ok=True)
-     file_path = 'random_users/random_users.parquet'
-     df_users.to_parquet(file_path, engine='pyarrow', index=False)
-     
-     kwargs['ti'].xcom_push(key='local_file_path', value=file_path)
+     print("Data successfully extracted")
+     return response.json()['results']
 
-# Function to upload file to s3 bucket
+# Function normalize data
+def normalize_data(data):
+   
+# Convert to dataframne
+   df_result = pd.json_normalize(data)
+   df_result.columns = df_result.columns.astype(str)
+   print("Transformation successful")
+   return df_result
 
-def upload_to_s3(**kwargs):
-     """
-    Uploads a local Parquet file (created in a previous task) to an AWS S3 bucket.
 
-    The local file path is retrieved from Airflow XCom.
-    Uses boto3 to interact with the S3 service.
+# boto3 session
+session = boto3.Session(
+        aws_access_key_id=variable.get("MY_SECRET_KEY"),
+        aws_secret_access_key=variable.get("MY_ACCESS_KEY"),
+        region = variable.get("REGION")
+    )
+def load_data():
+# Function to upload dataframe as a parquet file to S3
+    wr.s3.to_parquet(
+    df = df_result, 
+    path=s3_path,
+    dataset=True,
+    mode='append',
+    index=False,
+    boto3_session=session)
 
-    Args:
-        **kwargs: Context keyword arguments passed from Airflow.
-                  Must include 'ti' (TaskInstance) to pull data from XCom.
+print (f"Data successfully uploaded to {s3_path}")
 
-    Returns:
-        None
-    """
-     local_file_path = kwargs['ti'].xcom_pull(key='local_file_path')
-     s3 = boto3.client('s3')
-     s3.upload_file(local_file_path, s3_path)
+# ETL pipeline
+
+def etl_pipeline():
+    extract = random_users,
+    transform = normalize_data(data),
+    load =load_data
+    print("data successfully")
+
+
