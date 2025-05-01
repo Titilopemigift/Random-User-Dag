@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 import boto3
 import os
-import aws wrangler as wr
+import awswrangler as wr
 from airflow.models import variable
 
 
@@ -30,7 +30,7 @@ def random_users():
 # Function normalize data
 def normalize_data(data):
    
-# Convert to dataframne
+# Convert to dataframe
    df_result = pd.json_normalize(data)
    df_result.columns = df_result.columns.astype(str)
    print("Transformation successful")
@@ -46,7 +46,7 @@ session = boto3.Session(
 def load_data():
 # Function to upload dataframe as a parquet file to S3
     wr.s3.to_parquet(
-    df = df_result, 
+    df = normalize_data, 
     path=s3_path,
     dataset=True,
     mode='append',
@@ -59,8 +59,8 @@ print (f"Data successfully uploaded to {s3_path}")
 
 def etl_pipeline():
     extract = random_users,
-    transform = normalize_data(data),
-    load =load_data
+    transform = normalize_data(),
+    load =load_data()
     print("data successfully")
 
 
