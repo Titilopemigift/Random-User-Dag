@@ -15,7 +15,7 @@ def random_users():
         JSON file
     """
      url = 'https://randomuser.me/api/?results=10'
-     response = requests.get(url)
+     response = requests.get(url, timeout=10)
      print("Data successfully extracted")
      return response.json()['results']
 
@@ -30,7 +30,7 @@ def normalize_data(data):
     """
 # Convert to dataframe
     df_result = pd.json_normalize(data)
-    df_result.columns = df_result.columns.astype(str)
+    df_result = df_result.astype(str)
     print("Transformation successful")
     return df_result
 
@@ -43,8 +43,8 @@ s3_path = f"s3://{s3_bucket}/{s3_folder}/{s3_filename}"
 
 # boto3 session
 session = boto3.Session(
-        aws_access_key_id=Variable.get("MY_SECRET_KEY"),
-        aws_secret_access_key=Variable.get("MY_ACCESS_KEY"),
+        aws_access_key_id=Variable.get("MY_ACCESS_KEY"),
+        aws_secret_access_key=Variable.get("MY_SECRET_KEY"),
         region_name = Variable.get("REGION_NAME")
     )
 def load_data(df):
@@ -64,7 +64,7 @@ print (f"Data successfully uploaded to {s3_path}")
 # ETL pipeline
 
 def etl_pipeline():
-    extract = random_users
+    extract = random_users()
     transform = normalize_data(extract)
     load_data(transform)
 
